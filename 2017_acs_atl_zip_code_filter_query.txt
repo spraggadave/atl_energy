@@ -1,0 +1,78 @@
+/*
+THis query extracts from BigQuery's 2017 ACS public dataset a subset of data 
+for only the zipcodes of buildings we have in the atl_energy_score_data.csv file.
+
+The data for the atl_energy_score_data.csv comes from teh Atlanta Building
+efficiency website (https://atlantabuildingefficiency.com/benchmarking-data/) and 
+needs to be manually downloaded by clicking the first row, olding shift and
+then clicking the last row in the table.  Once that's done, an icon to explore the 
+data will pop up, and you need to click it and select "download all rows as text file"
+to get the CSV.
+
+Once the CSV is downloaded, you can uploaded to Big Query as a table with the same name.
+SOme cleanup of zipcodes will be required first in order to allow for searching by zip code (
+since the zips are embedded in the address field and are not a standalone column.
+This can be done in Excel or Google Sheets.
+
+Contact David Anderson at david@buildpayer.com for additional questions.
+
+*/
+
+WITH
+  zip AS (
+  SELECT
+    CAST(geo_id AS INT64) AS zip_code,
+    #population characteristics
+    pop_25_64 AS working_age_pop,
+    no_cars / households AS no_car_hh_perc,
+    median_age,
+    income_per_capita,
+    #household characteristics
+    nonfamily_households / (nonfamily_households + family_households) AS non_fam_hh_perc,
+    married_households / households AS married_HH_perc,
+    median_income,
+    #economic conditions
+    households_retirement_income / households AS retired_HH_perc,
+    unemployed_pop/ civilian_labor_force AS unemployment_rate,
+    management_business_sci_arts_employed / employed_pop AS mgmt_occupation_perc,
+    occupation_services / workers_16_and_over AS svcs_occupation_perc,
+    poverty / pop_determined_poverty_status AS poverty_rate,
+    households_public_asst_or_food_stamps / households AS hh_food_stamps_perc,
+    #housing characteristics
+    #HHs with rent to income > 30%
+    (rent_30_to_35_percent + rent_35_to_40_percent + rent_40_to_50_percent +rent_over_50_percent) /(rent_under_10_percent + rent_10_to_15_percent + rent_15_to_20_percent + rent_20_to_25_percent + rent_30_to_35_percent + rent_35_to_40_percent + rent_40_to_50_percent + rent_over_50_percent) AS rent_over_30_perc,
+    owner_occupied_housing_units_median_value AS median_home_value,
+    owner_occupied_housing_units / (housing_units_renter_occupied + owner_occupied_housing_units) AS homeownership_rate,
+    million_dollar_housing_units / housing_units AS mill_dollar_homes_perc,
+    median_rent,
+    median_year_structure_built,
+    #educational achievement
+    bachelors_degree_or_higher_25_64 / pop_25_64 AS pop_bachelors_or_higher_perc,
+    #commuting data
+    (commute_60_89_mins+ commute_90_more_mins)/(commute_5_9_mins+commute_10_14_mins+commute_15_19_mins+commute_20_24_mins+commute_25_29_mins+ commute_30_34_mins+ commute_35_39_mins+ commute_40_44_mins+commute_45_59_mins+ commute_60_89_mins+ commute_90_more_mins) AS hour_plus_commute,
+    commuters_by_bus / workers_16_and_over AS commute_bus_perc,
+    commuters_by_car_truck_van / workers_16_and_over AS commute_car_truck_van_perc,
+    commuters_by_carpool / workers_16_and_over AS commute_carpool_perc,
+    commuters_by_subway_or_elevated / workers_16_and_over AS commute_subway_perc,
+    commuters_drove_alone / workers_16_and_over AS commute_drove_alone_perc,
+    commuters_by_public_transportation / workers_16_and_over AS commute_public_transport_perc
+  FROM
+    `bigquery-public-data.census_bureau_acs.zip_codes_2017_5yr` acs_data
+  WHERE
+    acs_data.geo_id IN (
+    SELECT
+      DISTINCT acs_data.geo_id
+    FROM
+      `bigquery-public-data.census_bureau_acs.zip_codes_2017_5yr` acs_data,
+      `atl-bq-test.atl_efficiency_data_zips.atl_energy_score_data` bldg_data
+    WHERE
+      bldg_data.zip_code = CAST(acs_data.geo_id AS NUMERIC)) 
+      )
+SELECT
+  *
+FROM
+  `atl-bq-test.atl_efficiency_data_zips.atl_energy_score_data` bldg
+LEFT JOIN
+  `atl-bq-test.atl_efficiency_data_zips.2017_acs_data_zips` zip
+USING
+  (zip_code)

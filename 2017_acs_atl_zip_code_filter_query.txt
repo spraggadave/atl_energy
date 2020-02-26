@@ -14,6 +14,9 @@ SOme cleanup of zipcodes will be required first in order to allow for searching 
 since the zips are embedded in the address field and are not a standalone column.
 This can be done in Excel or Google Sheets.
 
+Note: Comments and [placeholder] bracket are included below in areas where you will need 
+to use your own bigQuery table names 
+
 Contact David Anderson at david@buildpayer.com for additional questions.
 
 */
@@ -64,15 +67,15 @@ WITH
       DISTINCT acs_data.geo_id
     FROM
       `bigquery-public-data.census_bureau_acs.zip_codes_2017_5yr` acs_data,
-      `atl-bq-test.atl_efficiency_data_zips.atl_energy_score_data` bldg_data
+      `[insert name of your own Big Query table here]` bldg_data #replace area in quotes with your own bigquery table reference
     WHERE
       bldg_data.zip_code = CAST(acs_data.geo_id AS NUMERIC)) 
       )
 SELECT
   *
-FROM
-  `atl-bq-test.atl_efficiency_data_zips.atl_energy_score_data` bldg
+FROM 
+  `[insert name of your own Big Query table here]` bldg_data #replace area in quotes with your own bigquery table reference
 LEFT JOIN
-  `atl-bq-test.atl_efficiency_data_zips.2017_acs_data_zips` zip
+  zip
 USING
   (zip_code)
